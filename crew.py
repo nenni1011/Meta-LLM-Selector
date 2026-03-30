@@ -80,13 +80,27 @@ def _run_crew(crew: Crew, retries: int = 3) -> str:
     return ""
 
 
-def run_pipeline(user_prompt: str) -> MetaLLMState:
-    """Run the full 4-agent pipeline and return populated MetaLLMState."""
+def run_pipeline(user_prompt: str, on_progress=None) -> MetaLLMState:
+    """Run the full 4-agent pipeline and return populated MetaLLMState.
 
+    Args:
+        user_prompt: The user's requirement text.
+        on_progress: Optional callback(dict) for streaming progress events.
+                     If None, crews run with verbose=True for CLI output.
+    """
+
+    def _emit(event_type: str, **data):
+        if on_progress:
+            on_progress({"type": event_type, **data})
+
+    verbose = on_progress is None
     llm = _build_llm()
     state = MetaLLMState(raw_prompt=user_prompt)
 
     # ── Agent 1: Intake ──
+    _emit("stage", stage=1, status="running", name="Analyzing Requirements")
+    _emit("thinking", stage=1, content="Parsing your requirements and classifying the use case...")
+
     intake_agent = create_intake_agent(llm)
     intake_task = create_intake_task(intake_agent, user_prompt)
 
@@ -94,7 +108,7 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
         agents=[intake_agent],
         tasks=[intake_task],
         process=Process.sequential,
-        verbose=True,
+        verbose=verbose,
     )
     intake_text = _run_crew(intake_crew)
 
@@ -110,7 +124,13 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
         if "tool_calling_needed" in parsed_intake:
             state.tool_calling_needed = bool(parsed_intake["tool_calling_needed"])
 
+    _emit("thinking", stage=1, content=f"Classified: task_type={state.task_type}, budget={state.budget_tier}, latency={state.latency_requirement}, context={state.context_window_needed}, scale={state.scale}")
+    _emit("stage", stage=1, status="done")
+
     # ── Agent 2: Research ──
+    _emit("stage", stage=2, status="running", name="Researching LLM Market")
+    _emit("thinking", stage=2, content="Searching benchmarks, pricing, and capabilities via Exa...")
+
     research_agent = create_research_agent(llm)
     research_task = create_research_task(research_agent, intake_text)
 
@@ -118,7 +138,7 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
         agents=[research_agent],
         tasks=[research_task],
         process=Process.sequential,
-        verbose=True,
+        verbose=verbose,
     )
     research_text = _run_crew(research_crew)
 
@@ -130,10 +150,15 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
                 try:
                     state.candidate_models.append(ModelCandidate(**model_data))
                 except Exception:
-                    # Skip malformed entries
                     pass
 
+    _emit("thinking", stage=2, content=f"Found {len(state.candidate_models)} candidate models: {', '.join(m.name for m in state.candidate_models[:6])}{'...' if len(state.candidate_models) > 6 else ''}")
+    _emit("stage", stage=2, status="done")
+
     # ── Agent 3: Scoring ──
+    _emit("stage", stage=3, status="running", name="Scoring & Ranking")
+    _emit("thinking", stage=3, content="Applying weighted multi-criteria scoring across cost, performance, speed, and fit...")
+
     scoring_agent = create_scoring_agent(llm)
     scoring_task = create_scoring_task(scoring_agent, intake_text, research_text)
 
@@ -141,7 +166,7 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
         agents=[scoring_agent],
         tasks=[scoring_task],
         process=Process.sequential,
-        verbose=True,
+        verbose=verbose,
     )
     scoring_text = _run_crew(scoring_crew)
 
@@ -155,7 +180,15 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
                 except Exception:
                     pass
 
+    if state.scored_candidates:
+        top = sorted(state.scored_candidates, key=lambda x: x.overall_score, reverse=True)[:3]
+        _emit("thinking", stage=3, content=f"Top scorers: {', '.join(f'{m.name} ({m.overall_score:.0f})' for m in top)}")
+    _emit("stage", stage=3, status="done")
+
     # ── Agent 4: Decision ──
+    _emit("stage", stage=4, status="running", name="Making Recommendations")
+    _emit("thinking", stage=4, content="Selecting Budget, Balanced, and Premium picks with data-backed justifications...")
+
     decision_agent = create_decision_agent(llm)
     decision_task = create_decision_task(decision_agent, intake_text, scoring_text)
 
@@ -163,7 +196,7 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
         agents=[decision_agent],
         tasks=[decision_task],
         process=Process.sequential,
-        verbose=True,
+        verbose=verbose,
     )
     decision_text = _run_crew(decision_crew)
 
@@ -176,5 +209,9 @@ def run_pipeline(user_prompt: str) -> MetaLLMState:
                     state.recommendations.append(ModelRecommendation(**rec_data))
                 except Exception:
                     pass
+
+    if state.recommendations:
+        _emit("thinking", stage=4, content=f"Final picks: {', '.join(f'{r.tier} → {r.model_name}' for r in state.recommendations)}")
+    _emit("stage", stage=4, status="done")
 
     return state

@@ -2,7 +2,7 @@
 
 > **Find the best LLM for your use case — powered by a multi-agent AI pipeline.**
 
-Meta-LLM-Selector is a terminal-based tool that analyzes your requirements and recommends the **3 best LLM models** for your needs:
+Meta-LLM-Selector is a tool that analyzes your requirements and recommends the **3 best LLM models** for your needs — available as both a **terminal CLI** and a **web UI**:
 
 | Tier | What You Get |
 |------|-------------|
@@ -57,6 +57,7 @@ User Terminal Input
 | Web search | [Exa](https://exa.ai) (semantic search API) |
 | Benchmark data | [Artificial Analysis](https://artificialanalysis.ai/models) |
 | Terminal UI | [Rich](https://github.com/Textualize/rich) |
+| Web UI | [FastAPI](https://fastapi.tiangolo.com) + SSE streaming |
 | State validation | [Pydantic v2](https://docs.pydantic.dev) |
 
 ---
@@ -116,9 +117,16 @@ EXA_API_KEY=your_actual_exa_key
 
 ### 5. Run Meta-LLM-Selector
 
+**Option A: Terminal CLI**
 ```bash
 python main.py
 ```
+
+**Option B: Web UI**
+```bash
+python -m uvicorn web.app:app --reload
+```
+Then open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ---
 
@@ -234,12 +242,45 @@ for initial response.
 
 ---
 
+## 🌐 Web UI
+
+The web UI provides the same 4-agent pipeline as the CLI, with a dark AI-themed interface inspired by Apple and Nothing aesthetics.
+
+### Features
+
+- **Guided mode** — step-by-step questionnaire (8 questions, one at a time)
+- **Freeform mode** — describe your use case in plain text
+- **Real-time streaming** — watch agents think via Server-Sent Events
+- **Pipeline visualizer** — 4-stage progress indicator with live status
+- **Terminal output** — agent reasoning displayed in a terminal-style panel
+- **Glassmorphism cards** — Budget / Balanced / Premium recommendation cards
+- **Responsive** — works on desktop, tablet, and mobile
+
+### Running the Web UI
+
+```bash
+source .venv/bin/activate
+python -m uvicorn web.app:app --reload
+```
+
+Open [http://localhost:8000](http://localhost:8000) in your browser.
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Serves the web UI |
+| `GET` | `/api/health` | API health check + key status |
+| `POST` | `/api/analyze` | Starts pipeline, returns SSE stream |
+
+---
+
 ## 📁 Project Structure
 
 ```
 Meta-LLM-Selector/
 ├── main.py                      # CLI entry point (Rich-powered interactive UI)
-├── crew.py                      # CrewAI pipeline orchestrator
+├── crew.py                      # CrewAI pipeline orchestrator (CLI + web)
 ├── state.py                     # Pydantic state models
 │
 ├── agents/
@@ -258,8 +299,17 @@ Meta-LLM-Selector/
 │   ├── exa_tool.py              # Exa search tools (benchmark, pricing, general)
 │   └── __init__.py
 │
+├── web/                         # Web UI (FastAPI + SSE streaming)
+│   ├── __init__.py
+│   ├── app.py                   # FastAPI server with SSE streaming endpoint
+│   └── static/
+│       ├── index.html           # Single-page app (dark AI theme)
+│       ├── style.css            # Apple+Nothing inspired dark theme
+│       └── app.js               # Frontend logic (guided/freeform, SSE client)
+│
 ├── tests/
-│   └── test_meta_llm.py         # Test suite
+│   ├── test_meta_llm.py         # Core pipeline tests (20 tests)
+│   └── test_web.py              # Web API tests (9 tests)
 │
 ├── .env.example                 # API key template
 ├── .env                         # Your API keys (git-ignored)
@@ -273,7 +323,14 @@ Meta-LLM-Selector/
 ## 🧪 Running Tests
 
 ```bash
+# All tests (29 total: 20 core + 9 web)
 pytest tests/ -v
+
+# Just core pipeline tests
+pytest tests/test_meta_llm.py -v
+
+# Just web API tests
+pytest tests/test_web.py -v
 ```
 
 ---
@@ -342,6 +399,7 @@ All configuration is done via `.env` file:
 | `GEMINI_API_KEY` | Yes | — | Google Gemini API key |
 | `EXA_API_KEY` | Yes | — | Exa search API key |
 | `CREW_MODEL` | No | `gemini/gemini-2.5-flash` | LLM model for CrewAI agents |
+| `CREWAI_TRACING_ENABLED` | No | `false` | Disable CrewAI tracing prompts |
 
 ### Supported LLM Models
 
