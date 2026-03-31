@@ -51,10 +51,27 @@ def _safe_parse_json(text: str, fallback: str = "{}") -> Union[Dict, List]:
 
 
 def _build_llm() -> LLM:
-    """Build a CrewAI LLM instance with the configured model and API key."""
-    model = os.getenv("CREW_MODEL", "gemini/gemma-3-27b-it")
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    return LLM(model=model, api_key=gemini_key)
+    """Build a CrewAI LLM instance with the configured model and API key.
+
+    Detects the provider from the CREW_MODEL prefix and passes the correct
+    API key.  Supported prefixes:
+      gemini/   -> GEMINI_API_KEY  (Google AI Studio — Gemini models only;
+                   Gemma models on Google AI Studio do NOT support system
+                   prompts and are therefore incompatible with CrewAI)
+      groq/     -> GROQ_API_KEY   (Groq — supports Gemma with system prompts)
+      openai/   -> OPENAI_API_KEY
+      anthropic/ -> ANTHROPIC_API_KEY
+    """
+    model = os.getenv("CREW_MODEL", "gemini/gemini-2.5-flash")
+    prefix = model.split("/")[0].lower()
+    key_map = {
+        "gemini": os.getenv("GEMINI_API_KEY", ""),
+        "groq": os.getenv("GROQ_API_KEY", ""),
+        "openai": os.getenv("OPENAI_API_KEY", ""),
+        "anthropic": os.getenv("ANTHROPIC_API_KEY", ""),
+    }
+    api_key = key_map.get(prefix, "")
+    return LLM(model=model, api_key=api_key)
 
 
 def _run_crew(crew: Crew, retries: int = 3) -> str:
