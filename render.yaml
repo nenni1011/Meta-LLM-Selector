@@ -6,8 +6,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn web.app:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
       - key: CREW_MODEL
         value: "gemini/gemini-2.5-flash"
       - key: CREWAI_TRACING_ENABLED
