@@ -52,7 +52,7 @@ def _safe_parse_json(text: str, fallback: str = "{}") -> Union[Dict, List]:
 
 def _build_llm() -> LLM:
     """Build a CrewAI LLM instance with the configured model and API key."""
-    model = os.getenv("CREW_MODEL", "gemini/gemini-2.5-flash")
+    model = os.getenv("CREW_MODEL", "gemini/gemma-3-27b-it")
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     return LLM(model=model, api_key=gemini_key)
 

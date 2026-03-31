@@ -53,7 +53,7 @@ User Terminal Input
 | Component | Technology |
 |-----------|-----------|
 | Multi-agent framework | [CrewAI](https://github.com/crewAIInc/crewAI) |
-| LLM backbone | Google Gemini 2.0 Flash (via `google-genai` native SDK) |
+| LLM backbone | Google Gemma 3 27B (via Google AI Studio / `gemini/` LiteLLM prefix) |
 | Web search | [Exa](https://exa.ai) (semantic search API) |
 | Benchmark data | [Artificial Analysis](https://artificialanalysis.ai/models) |
 | Terminal UI | [Rich](https://github.com/Textualize/rich) |
@@ -398,7 +398,7 @@ All configuration is done via `.env` file:
 |----------|----------|---------|-------------|
 | `GEMINI_API_KEY` | Yes | — | Google Gemini API key |
 | `EXA_API_KEY` | Yes | — | Exa search API key |
-| `CREW_MODEL` | No | `gemini/gemini-2.5-flash` | LLM model for CrewAI agents |
+| `CREW_MODEL` | No | `gemini/gemma-3-27b-it` | LLM model for CrewAI agents |
 | `CREWAI_TRACING_ENABLED` | No | `false` | Disable CrewAI tracing prompts |
 
 ### Supported LLM Models
@@ -406,9 +406,13 @@ All configuration is done via `.env` file:
 You can change `CREW_MODEL` to any LiteLLM-compatible model:
 
 ```env
-# Google Gemini (recommended — free tier, broad regional coverage)
-CREW_MODEL=gemini/gemini-2.5-flash       # default — best free-tier option
-CREW_MODEL=gemini/gemini-2.5-flash-lite  # faster / cheaper
+# Google Gemma via Google AI Studio (recommended — same API key, free tier)
+CREW_MODEL=gemini/gemma-3-27b-it       # default — best Gemma for reasoning + JSON
+CREW_MODEL=gemini/gemma-3-12b-it       # faster, slightly less capable
+
+# Google Gemini (also supported)
+CREW_MODEL=gemini/gemini-2.5-flash     # previous default
+CREW_MODEL=gemini/gemini-2.5-flash-lite  # fastest / cheapest
 
 # OpenAI
 CREW_MODEL=gpt-4o
@@ -417,7 +421,7 @@ CREW_MODEL=gpt-4o
 CREW_MODEL=anthropic/claude-3-5-sonnet-20241022
 ```
 
-> **Note on free-tier models:** `gemini-2.0-flash` has `limit: 0` in some regions. Use `gemini-2.5-flash` instead.
+> **Why Gemma 3 27B?** It's the largest instruction-tuned Gemma model available on the free tier. The pipeline requires structured JSON output at every stage and multi-step reasoning over web search results — capabilities where 27B outperforms smaller Gemma variants. It uses the same `GEMINI_API_KEY` (served via Google AI Studio).
 
 ---
 
